@@ -34,7 +34,7 @@ export function LiveIndicator({
   className?: string
 }) {
   return (
-    <span className={cn('inline-flex items-center gap-2 font-mono text-[10.5px] font-semibold tracking-[0.18em]', tones[tone].text, className)}>
+    <span className={cn('inline-flex items-center gap-2 whitespace-nowrap font-mono text-[10.5px] font-semibold tracking-[0.18em]', tones[tone].text, className)}>
       <PulseDot tone={tone} pulse={pulse} />
       {label}
     </span>

@@ -38,3 +38,6 @@ export const normalize = (s: string) =>
 export const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
+/** Enlace público del portal del postulante para un código de entrevista */
+export const portalLink = (code: string) => `${window.location.origin}/portal/${code}`

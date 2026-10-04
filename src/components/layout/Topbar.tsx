@@ -143,7 +143,7 @@ export function Topbar() {
         className="group flex h-9 w-full max-w-md items-center gap-2.5 rounded-lg border border-line bg-white/[0.02] px-3 text-sm text-dim transition-[border-color,background,box-shadow] duration-150 hover:border-blue-400/30 hover:bg-blue-500/[0.04] hover:shadow-[0_0_0_3px_rgb(59_130_246/0.06)]"
       >
         <Search className="size-4 transition-colors group-hover:text-blue-300" />
-        <span className="flex-1 text-left">Buscar normativa, candidatos, acciones…</span>
+        <span className="min-w-0 flex-1 truncate text-left">Buscar normativa, candidatos, acciones…</span>
         <span className="hidden items-center gap-1 sm:flex">
           <Kbd>{isMac ? '⌘' : 'Ctrl'}</Kbd>
           <Kbd>K</Kbd>

@@ -1,0 +1,330 @@
+import type { Article, NormativaCategory } from './types'
+
+export const CATEGORIES: NormativaCategory[] = [
+  { id: 'operativa', code: '1', name: 'Procedimientos operativos', icon: 'siren' },
+  { id: 'fuerza', code: '2', name: 'Uso de la fuerza', icon: 'shield' },
+  { id: 'detencion', code: '3', name: 'Detenciones y derechos', icon: 'handcuffs' },
+  { id: 'radio', code: '4', name: 'Comunicaciones y radio', icon: 'radio' },
+  { id: 'conducta', code: '5', name: 'Conducta y uniformidad', icon: 'users' },
+  { id: 'legal', code: '6', name: 'Marco legal', icon: 'scale' },
+]
+
+export const ARTICLES: Article[] = [
+  // 1 · OPERATIVA ------------------------------------------------------------
+  {
+    id: '1.01',
+    category: 'operativa',
+    title: 'Inicio y fin de servicio',
+    summary: 'Registro obligatorio de entrada y salida de servicio y asignación de unidad.',
+    body: [
+      'Todo agente debe registrar su entrada en servicio a través del MDT antes de abandonar comisaría, indicando unidad, distintivo y compañero asignado.',
+      'El fin de servicio se comunicará por radio a Central y se registrará en el MDT. Queda prohibido abandonar el servicio con un procedimiento abierto sin traspasarlo a otra unidad.',
+      'El vehículo y el equipamiento asignados se devolverán en el estado en que fueron recibidos; cualquier daño debe reportarse en el informe de turno.',
+    ],
+    tags: ['servicio', 'mdt', 'turno', 'unidad'],
+    related: ['4.01', '5.01'],
+    updatedAt: '2026-08-12',
+  },
+  {
+    id: '1.12',
+    category: 'operativa',
+    title: 'Controles de tráfico',
+    summary: 'Cómo detener un vehículo de forma segura y qué comunicar a Central.',
+    body: [
+      'Antes de iniciar un control se comunicará a Central: ubicación, matrícula, modelo y color del vehículo y número de ocupantes.',
+      'El vehículo policial se situará detrás y ligeramente desplazado hacia el lado del conductor, con luces de emergencia activadas.',
+      'El agente se aproximará por el lateral, manteniendo la vista en las manos de los ocupantes. Si el conductor se niega a detenerse, se procederá conforme al ART. 1.25.',
+    ],
+    tags: ['tráfico', 'control', 'vehículo', 'matrícula', 'parada'],
+    related: ['1.25', '4.03', '3.02'],
+    updatedAt: '2026-07-30',
+  },
+  {
+    id: '1.25',
+    category: 'operativa',
+    title: 'Persecuciones vehiculares',
+    summary: 'Autorización, número de unidades y finalización de persecuciones.',
+    body: [
+      'Una persecución sólo podrá iniciarse cuando exista un motivo fundado y se haya dado el aviso de alto mediante luces y sirena.',
+      'Participarán como máximo tres unidades terrestres más el apoyo aéreo. La unidad primaria narrará la persecución por radio; la secundaria coordinará con Central.',
+      'El supervisor al mando podrá cancelar la persecución cuando el riesgo para civiles supere el beneficio de la detención.',
+      'Las maniobras de contención (PIT, encajonamiento) requieren autorización expresa y se regulan en el ART. 1.27.',
+    ],
+    tags: ['persecución', 'unidades', 'sirena', 'supervisor', 'pit'],
+    related: ['1.27', '1.28', '4.03'],
+    updatedAt: '2026-09-02',
+  },
+  {
+    id: '1.27',
+    category: 'operativa',
+    title: 'Maniobras de contención',
+    summary: 'Uso de PIT y encajonamiento durante persecuciones.',
+    body: [
+      'La maniobra PIT sólo podrá ejecutarse con autorización del supervisor, en vía recta, sin tráfico civil cercano y a velocidad inferior a 100 km/h.',
+      'Queda prohibido realizar PIT sobre motocicletas, vehículos que transporten materiales peligrosos o cuando haya peatones en la zona.',
+      'El encajonamiento requiere un mínimo de tres unidades coordinadas y se anunciará por radio antes de ejecutarse.',
+    ],
+    tags: ['pit', 'encajonamiento', 'maniobra', 'contención', 'persecución'],
+    related: ['1.25', '1.28', '2.01'],
+    updatedAt: '2026-09-02',
+  },
+  {
+    id: '1.28',
+    category: 'operativa',
+    title: 'Pinchazos de ruedas, avisos y entrada en zonas',
+    summary: 'Cuándo se permite pinchar ruedas, avisos previos obligatorios y entrada en zonas restringidas.',
+    body: [
+      'Se permite pinchar las ruedas de un vehículo en fuga únicamente tras haber realizado al menos dos avisos claros por megafonía y con autorización del supervisor de la persecución.',
+      'Está prohibido pinchar ruedas a vehículos que circulen a más de 120 km/h, en autopistas con tráfico denso o en zonas residenciales con peatones visibles.',
+      'Las bandas de clavos (spike strips) sólo podrán desplegarse por una unidad estática, avisando previamente por radio de su posición exacta a todas las unidades implicadas.',
+      'La entrada en zonas restringidas o de alto riesgo durante una persecución requerirá la confirmación de Central y, como mínimo, dos unidades de apoyo.',
+    ],
+    tags: ['pinchar ruedas', 'pinchazo', 'ruedas', 'spike', 'clavos', 'avisos', 'megafonía', 'zonas', 'persecución'],
+    related: ['1.25', '1.27', '4.03'],
+    updatedAt: '2026-09-21',
+  },
+  {
+    id: '1.30',
+    category: 'operativa',
+    title: 'Códigos de respuesta',
+    summary: 'Código 1, 2 y 3: prioridad, luces y sirena.',
+    body: [
+      'CÓDIGO 1: respuesta rutinaria, sin luces ni sirena, respetando las normas de circulación.',
+      'CÓDIGO 2: respuesta urgente, con luces de emergencia y sin sirena salvo en cruces.',
+      'CÓDIGO 3: emergencia, con luces y sirena. Sólo autorizado ante riesgo inminente para vidas.',
+    ],
+    tags: ['código', 'respuesta', 'luces', 'sirena', 'prioridad'],
+    related: ['4.02', '1.25'],
+    updatedAt: '2026-06-15',
+  },
+  {
+    id: '1.40',
+    category: 'operativa',
+    title: 'Situaciones con rehenes',
+    summary: 'Perímetro, negociación y entrada táctica.',
+    body: [
+      'La primera unidad en llegar establecerá un perímetro y solicitará supervisor y negociador.',
+      'Ningún agente iniciará negociación sin autorización del mando. La prioridad absoluta es la vida de los rehenes.',
+      'La entrada táctica sólo podrá ordenarla el mando al cargo tras agotar la vía negociada o ante riesgo inminente.',
+    ],
+    tags: ['rehenes', 'perímetro', 'negociación', 'atraco'],
+    related: ['2.01', '4.01'],
+    updatedAt: '2026-05-04',
+  },
+
+  // 2 · FUERZA ---------------------------------------------------------------
+  {
+    id: '2.01',
+    category: 'fuerza',
+    title: 'Principios del uso de la fuerza',
+    summary: 'Necesidad, proporcionalidad y oportunidad.',
+    body: [
+      'El uso de la fuerza se regirá por los principios de necesidad, proporcionalidad y oportunidad. Se utilizará el mínimo nivel de fuerza necesario para controlar la situación.',
+      'La escalada seguirá el orden: presencia, verbalización, control físico, armas menos letales y, como último recurso, arma de fuego.',
+      'Todo uso de la fuerza debe documentarse en el informe correspondiente.',
+    ],
+    tags: ['fuerza', 'proporcionalidad', 'escalada', 'necesidad'],
+    related: ['2.02', '2.03'],
+    updatedAt: '2026-04-11',
+  },
+  {
+    id: '2.02',
+    category: 'fuerza',
+    title: 'Armas menos letales (Taser)',
+    summary: 'Requisitos para el uso del dispositivo de control eléctrico.',
+    body: [
+      'El Taser podrá utilizarse ante resistencia activa o agresión, nunca ante resistencia pasiva.',
+      'Se dará aviso verbal ("¡Taser, Taser!") siempre que sea posible antes de su uso.',
+      'Queda prohibido su uso sobre personas en altura, en el agua o conduciendo un vehículo.',
+    ],
+    tags: ['taser', 'menos letal', 'resistencia'],
+    related: ['2.01', '2.03'],
+    updatedAt: '2026-04-11',
+  },
+  {
+    id: '2.03',
+    category: 'fuerza',
+    title: 'Uso del arma de fuego',
+    summary: 'Supuestos tasados en los que está autorizado disparar.',
+    body: [
+      'El arma de fuego sólo podrá utilizarse ante una amenaza inminente de muerte o lesión grave para el agente o terceros.',
+      'Se prohíbe disparar contra vehículos en movimiento salvo que el vehículo se esté utilizando como arma contra personas.',
+      'Tras cualquier disparo se notificará inmediatamente a Central con código y se preservará la escena.',
+    ],
+    tags: ['arma', 'disparo', 'fuego', 'amenaza'],
+    related: ['2.01', '4.02'],
+    updatedAt: '2026-04-11',
+  },
+
+  // 3 · DETENCIÓN ------------------------------------------------------------
+  {
+    id: '3.01',
+    category: 'detencion',
+    title: 'Lectura de derechos',
+    summary: 'Momento y contenido de la lectura de derechos (Miranda).',
+    body: [
+      'Los derechos se leerán en el momento de la detención o, como máximo, antes de cualquier interrogatorio.',
+      'El detenido tiene derecho a guardar silencio, a un abogado y a que se le informe de los cargos que se le imputan.',
+      'La omisión de la lectura de derechos invalida las declaraciones obtenidas.',
+    ],
+    tags: ['miranda', 'derechos', 'detenido', 'abogado', 'silencio'],
+    related: ['3.02', '3.03'],
+    updatedAt: '2026-03-20',
+  },
+  {
+    id: '3.02',
+    category: 'detencion',
+    title: 'Cacheos y registros',
+    summary: 'Cacheo superficial, registro de vehículos y consentimiento.',
+    body: [
+      'El cacheo superficial está permitido ante sospecha razonable de portar armas.',
+      'El registro de un vehículo requiere consentimiento del conductor, orden judicial o causa probable.',
+      'Todo objeto incautado se documentará y depositará en la sala de evidencias.',
+    ],
+    tags: ['cacheo', 'registro', 'causa probable', 'evidencias'],
+    related: ['3.01', '1.12'],
+    updatedAt: '2026-03-20',
+  },
+  {
+    id: '3.03',
+    category: 'detencion',
+    title: 'Tiempo máximo de detención',
+    summary: 'Plazos de custodia y puesta a disposición.',
+    body: [
+      'El tiempo de custodia no podrá superar el estrictamente necesario para la tramitación del procedimiento.',
+      'Si se superan los 30 minutos en comisaría sin cargos formalizados, el detenido deberá ser puesto en libertad.',
+    ],
+    tags: ['custodia', 'tiempo', 'plazo', 'libertad'],
+    related: ['3.01'],
+    updatedAt: '2026-02-01',
+  },
+
+  // 4 · RADIO ----------------------------------------------------------------
+  {
+    id: '4.01',
+    category: 'radio',
+    title: 'Disciplina de radio',
+    summary: 'Uso de la frecuencia, prioridades y lenguaje.',
+    body: [
+      'La frecuencia principal se reservará a comunicaciones operativas. Las conversaciones personales están prohibidas.',
+      'Las comunicaciones serán breves, claras y precedidas del distintivo de la unidad.',
+      'Una llamada de emergencia ("10-99" o "Código 0") tiene prioridad absoluta: el resto de unidades guardará silencio.',
+    ],
+    tags: ['radio', 'frecuencia', 'distintivo', 'código 0'],
+    related: ['4.02', '4.03'],
+    updatedAt: '2026-08-01',
+  },
+  {
+    id: '4.02',
+    category: 'radio',
+    title: 'Códigos 10',
+    summary: 'Tabla de códigos 10 de uso habitual.',
+    body: [
+      '10-4: Recibido. 10-8: En servicio. 10-7: Fuera de servicio. 10-20: Ubicación.',
+      '10-38: Control de tráfico. 10-80: Persecución en curso. 10-99: Agente necesita ayuda urgente.',
+      'El uso incorrecto de códigos que provoque confusión operativa podrá ser sancionado.',
+    ],
+    tags: ['10-4', '10-20', '10-80', '10-99', 'códigos'],
+    related: ['4.01', '1.30'],
+    updatedAt: '2026-08-01',
+  },
+  {
+    id: '4.03',
+    category: 'radio',
+    title: 'Narración de persecuciones',
+    summary: 'Qué información debe comunicar la unidad primaria.',
+    body: [
+      'La unidad primaria comunicará: dirección, calle, velocidad aproximada, comportamiento del vehículo y número de ocupantes.',
+      'Cualquier cambio relevante (arma visible, ocupante que abandona el vehículo) se comunicará de inmediato.',
+    ],
+    tags: ['persecución', 'narración', 'radio', 'primaria'],
+    related: ['1.25', '1.28', '4.01'],
+    updatedAt: '2026-09-02',
+  },
+
+  // 5 · CONDUCTA -------------------------------------------------------------
+  {
+    id: '5.01',
+    category: 'conducta',
+    title: 'Uniformidad',
+    summary: 'Uniforme reglamentario y excepciones.',
+    body: [
+      'Durante el servicio se vestirá el uniforme reglamentario completo, incluyendo placa visible y distintivo de rango.',
+      'Las unidades de paisano requieren autorización del mando y deberán portar la placa en todo momento.',
+    ],
+    tags: ['uniforme', 'placa', 'rango', 'paisano'],
+    related: ['5.02'],
+    updatedAt: '2026-01-10',
+  },
+  {
+    id: '5.02',
+    category: 'conducta',
+    title: 'Trato al ciudadano',
+    summary: 'Respeto, identificación y prohibición de abuso de autoridad.',
+    body: [
+      'El agente tratará a los ciudadanos con respeto y se identificará cuando se le solicite.',
+      'Queda prohibido el abuso de autoridad, las amenazas y cualquier trato degradante.',
+      'Las quejas ciudadanas se tramitarán a través de Asuntos Internos.',
+    ],
+    tags: ['ciudadano', 'respeto', 'identificación', 'abuso'],
+    related: ['5.01', '5.03'],
+    updatedAt: '2026-01-10',
+  },
+  {
+    id: '5.03',
+    category: 'conducta',
+    title: 'Corrupción y conflicto de intereses',
+    summary: 'Prohibición de aceptar sobornos y obligación de reportar.',
+    body: [
+      'Aceptar dinero, favores u objetos a cambio de omitir un procedimiento constituye falta muy grave y supone la expulsión inmediata.',
+      'Todo agente que tenga conocimiento de un acto de corrupción está obligado a reportarlo a Asuntos Internos.',
+    ],
+    tags: ['soborno', 'corrupción', 'asuntos internos', 'expulsión'],
+    related: ['5.02'],
+    updatedAt: '2026-01-10',
+  },
+  {
+    id: '5.10',
+    category: 'conducta',
+    title: 'Cadena de mando',
+    summary: 'Jerarquía y obediencia a las órdenes legítimas.',
+    body: [
+      'Las órdenes se recibirán del superior inmediato. Un agente podrá negarse a cumplir una orden manifiestamente ilegal, informando por escrito.',
+      'Rangos: Cadete, Oficial I-III, Sargento, Teniente, Capitán, Comandante, Subjefe y Jefe de Policía.',
+    ],
+    tags: ['jerarquía', 'rango', 'órdenes', 'mando'],
+    related: ['5.01'],
+    updatedAt: '2026-02-18',
+  },
+
+  // 6 · LEGAL ----------------------------------------------------------------
+  {
+    id: '6.01',
+    category: 'legal',
+    title: 'Clasificación de delitos',
+    summary: 'Infracciones, delitos menores y delitos graves.',
+    body: [
+      'Infracción: sancionada con multa. Delito menor: multa y/o custodia breve. Delito grave: custodia y puesta a disposición judicial.',
+      'La reincidencia agrava la calificación según el Código Penal vigente.',
+    ],
+    tags: ['delito', 'multa', 'infracción', 'grave'],
+    related: ['6.02', '3.03'],
+    updatedAt: '2026-05-22',
+  },
+  {
+    id: '6.02',
+    category: 'legal',
+    title: 'Orden judicial',
+    summary: 'Cuándo es necesaria y cómo solicitarla.',
+    body: [
+      'Será necesaria orden judicial para el registro de domicilios, salvo flagrante delito o consentimiento del titular.',
+      'La solicitud se tramitará a través del MDT, adjuntando las pruebas que justifiquen la causa probable.',
+    ],
+    tags: ['orden', 'judicial', 'domicilio', 'registro'],
+    related: ['3.02', '6.01'],
+    updatedAt: '2026-05-22',
+  },
+]
+
+export const articleById = (id: string) => ARTICLES.find((a) => a.id === id)
+export const categoryById = (id: string) => CATEGORIES.find((c) => c.id === id)

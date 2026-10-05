@@ -21,8 +21,9 @@ export interface DbRecord<T = unknown> {
 type UpsertHandler = (r: DbRecord) => void
 type DeleteHandler = (id: string) => void
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+const env = import.meta.env as Record<string, string | undefined>
+const url = env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL
+const key = env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const TABLE = 'lspd_records'
 const LS_KEY = 'lspd-db-v2'
 

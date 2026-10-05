@@ -8,7 +8,7 @@ Sistema interno de reclutamiento del LSPD: entrevistas en tiempo real, normativa
 
 Sin Supabase la app funciona en **modo local**: los datos sólo existen en tu navegador y el enlace del postulante **no** funciona en otro dispositivo.
 
-1. Crea un proyecto en [supabase.com](https://supabase.com).
+1. Crea un proyecto en [supabase.com](https://supabase.com) **o** instala la integración **Supabase** desde Vercel → Storage / Marketplace (crea las variables `NEXT_PUBLIC_SUPABASE_*` automáticamente, que la app también acepta; en ese caso salta el paso 4).
 2. En **SQL Editor** ejecuta el contenido de [`supabase/schema.sql`](supabase/schema.sql).
 3. En **Project Settings → API** copia la *Project URL* y la *anon public key*.
 4. En Vercel → tu proyecto → **Settings → Environment Variables** añade:

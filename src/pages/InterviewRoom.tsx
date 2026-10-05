@@ -27,6 +27,8 @@ import { Page } from '@/components/app/PageHeader'
 import { Timeline } from '@/components/app/Timeline'
 import { InterviewStatusBadge } from '@/components/app/StatusBadge'
 import { ArticleView } from '@/components/normativa/ArticleView'
+import { ScreenMonitor } from '@/components/interview/ScreenMonitor'
+import { GamesPanel } from '@/components/interview/GamesPanel'
 import { CountUp, DecryptedText, RollingText, SpotlightCard } from '@/components/reactbits'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -251,6 +253,7 @@ function PreStart({ iv }: { iv: Interview }) {
         </Button>
         {!joined && <p className="mt-2 text-xs text-dim">Se habilitará cuando el postulante entre a la sala.</p>}
       </div>
+      {joined && <ScreenMonitor screen={iv.screen} className="mx-auto mt-6 max-w-md text-left" />}
     </SpotlightCard>
   )
 }
@@ -472,7 +475,9 @@ export default function InterviewRoom() {
 
             {/* Columna derecha */}
             <aside className="space-y-4 lg:col-span-2 xl:col-span-1">
+              <ScreenMonitor screen={iv.screen} />
               <IncidentsPanel iv={iv} />
+              <GamesPanel iv={iv} />
               <div className="panel p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="label-caps !text-[11px] !text-fg">Historial</h3>

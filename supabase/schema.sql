@@ -3,7 +3,7 @@
 
 create table if not exists public.lspd_records (
   id         text primary key,
-  kind       text not null check (kind in ('cand', 'iv', 'ans', 'inc', 'join')),
+  kind       text not null check (kind in ('cand', 'iv', 'ans', 'inc', 'join', 'snap', 'game')),
   data       jsonb not null,
   updated_at timestamptz not null default now()
 );

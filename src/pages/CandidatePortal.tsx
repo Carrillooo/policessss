@@ -22,6 +22,10 @@ import { DEFAULT_TRANSITION, EASE, EXIT_TRANSITION, PAGE_TRANSITION, questionVar
 import { questionById } from '@/data/questions'
 import type { IncidentType } from '@/data/types'
 import { useApp, useCandidate } from '@/store/app-store'
+import { useProctoring } from '@/hooks/useProctoring'
+import { SecurityGate } from '@/components/portal/SecurityGate'
+import { GameFrame } from '@/games/GameFrame'
+import { getGame, isGameId } from '@/games'
 import { db } from '@/lib/db'
 
 type Phase = 'connecting' | 'verified' | 'waiting' | 'started' | 'live' | 'finished' | 'invalid'
@@ -89,16 +93,13 @@ function useIntegrity(active: boolean, report: (t: IncidentType) => void) {
     }
     const onVis = () => document.hidden && fire('TAB_SWITCH')
     const onBlur = () => setTimeout(() => !document.hidden && fire('FOCUS_LOST'), 200)
-    const onFs = () => !document.fullscreenElement && fire('FULLSCREEN_EXIT')
     const onPaste = () => fire('COPY_PASTE')
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('blur', onBlur)
-    document.addEventListener('fullscreenchange', onFs)
     document.addEventListener('paste', onPaste)
     return () => {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('blur', onBlur)
-      document.removeEventListener('fullscreenchange', onFs)
       document.removeEventListener('paste', onPaste)
     }
   }, [active, report])
@@ -122,7 +123,6 @@ function Session({ code }: { code: string }) {
   const ivFinished = iv?.status === 'finished'
   useEffect(() => {
     if (!ivId) return
-    if (!ivFinished) join(ivId)
     const a = setTimeout(() => setIntro('verified'), 1500)
     const b = setTimeout(() => setIntro('done'), 2700)
     return () => {
@@ -178,6 +178,32 @@ function Session({ code }: { code: string }) {
 
   useIntegrity(phase === 'live', (t) => iv && reportIncident(iv.id, t))
 
+  // Control de integridad: pantalla compartida, un monitor, pantalla completa, sin móvil
+  const pushSnapshot = useApp((s) => s.pushSnapshot)
+  const [passedOnce, setPassedOnce] = useState(false)
+  const proctor = useProctoring({
+    active: passedOnce && !!iv && iv.status !== 'finished',
+    onSnapshot: (snap) => iv && pushSnapshot(iv.id, { ...snap, at: Date.now() }),
+    onViolation: (t) => iv && reportIncident(iv.id, t),
+  })
+  useEffect(() => {
+    if (proctor.ok && !passedOnce && ivId && !ivFinished) {
+      setPassedOnce(true)
+      join(ivId)
+    }
+  }, [proctor.ok, passedOnce, ivId, ivFinished, join])
+  useEffect(() => {
+    if (ivFinished) proctor.stopSharing()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ivFinished])
+
+  // Prueba psicotécnica lanzada por el entrevistador
+  const updateGameRun = useApp((s) => s.updateGameRun)
+  const [dismissedGame, setDismissedGame] = useState<number | null>(null)
+  const activeGame = iv?.status === 'live' && iv.activeGame && iv.activeGame.launchedAt !== dismissedGame ? iv.activeGame : null
+  const gameDef = activeGame && isGameId(activeGame.id) ? getGame(activeGame.id) : undefined
+  const gameRun = activeGame ? iv?.gameRuns?.[activeGame.id] : undefined
+
   if (phase === 'invalid' && searching)
     return (
       <Shell>
@@ -205,6 +231,38 @@ function Session({ code }: { code: string }) {
           <Button className="mt-6" onClick={() => (window.location.href = '/portal')}>
             Volver
           </Button>
+        </motion.div>
+      </Shell>
+    )
+
+  const needsGate = intro === 'done' && phase !== 'finished' && !proctor.ok
+
+  if (needsGate)
+    return (
+      <Shell>
+        <SecurityGate state={proctor} locked={passedOnce} onShare={() => void proctor.requestShare()} onFullscreen={() => void proctor.requestFullscreen()} />
+      </Shell>
+    )
+
+  if (phase === 'live' && iv && gameDef && activeGame)
+    return (
+      <Shell>
+        <motion.div key={activeGame.launchedAt} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={PAGE_TRANSITION} className="w-full max-w-4xl">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <LiveIndicator label="PRUEBA PSICOTÉCNICA · PANTALLA MONITORIZADA" />
+            {gameRun?.status === 'done' && (
+              <Button size="sm" variant="primary" onClick={() => setDismissedGame(activeGame.launchedAt)}>
+                Volver a la entrevista <ArrowRight />
+              </Button>
+            )}
+          </div>
+          <GameFrame
+            game={gameDef}
+            mode="candidate"
+            onStarted={() => updateGameRun(iv.id, { gameId: gameDef.id, status: 'playing', round: 0, rounds: 1, score: 0, at: Date.now() })}
+            onProgress={(p) => updateGameRun(iv.id, { gameId: gameDef.id, status: 'playing', round: p.round, rounds: p.rounds, score: Math.round(p.score), at: Date.now() })}
+            onFinished={(score, detail) => updateGameRun(iv.id, { gameId: gameDef.id, status: 'done', round: 0, rounds: 0, score, detail, at: Date.now() })}
+          />
         </motion.div>
       </Shell>
     )

@@ -46,10 +46,29 @@ const VERDICT = {
   error: 'RENDIMIENTO INSUFICIENTE',
 } as const
 
-export function GameFrame({ game }: { game: GameDef }) {
+interface GameFrameProps {
+  game: GameDef
+  /** 'candidate': la juega el postulante desde su portal (sin repetir ni guardar manual) */
+  mode?: 'panel' | 'candidate'
+  onStarted?: () => void
+  onProgress?: (p: GameProgress) => void
+  onFinished?: (score: number, detail: GameDetail) => void
+}
+
+export function GameFrame({ game, mode = 'panel', onStarted, onProgress, onFinished }: GameFrameProps) {
   const [phase, setPhase] = useState<Phase>('intro')
   const [run, setRun] = useState(0)
-  const [hud, setHud] = useState<GameProgress>({ round: 0, rounds: 1, score: 0 })
+  const [hud, setHudState] = useState<GameProgress>({ round: 0, rounds: 1, score: 0 })
+  const progressRef = useRef(onProgress)
+  progressRef.current = onProgress
+  const setHud = useCallback((p: GameProgress) => {
+    setHudState(p)
+    progressRef.current?.(p)
+  }, [])
+  const finishedRef = useRef(onFinished)
+  finishedRef.current = onFinished
+  const startedRef = useRef(onStarted)
+  startedRef.current = onStarted
   const [result, setResult] = useState<Result | null>(null)
   const startedAt = useRef(0)
 
@@ -63,6 +82,7 @@ export function GameFrame({ game }: { game: GameDef }) {
   const onCountdownDone = useCallback(() => {
     startedAt.current = performance.now()
     setPhase('playing')
+    startedRef.current?.()
   }, [])
 
   const handleComplete = useCallback(
@@ -71,6 +91,7 @@ export function GameFrame({ game }: { game: GameDef }) {
       const { best, isNew } = recordScore(game.id, s)
       setResult({ score: s, detail, elapsed: (performance.now() - startedAt.current) / 1000, best, isNew })
       setPhase('results')
+      finishedRef.current?.(s, detail)
     },
     [game.id],
   )
@@ -116,7 +137,7 @@ export function GameFrame({ game }: { game: GameDef }) {
           )}
           {phase === 'results' && result && (
             <motion.div key="results" variants={pageVariants} initial="hidden" animate="show" exit="exit">
-              <Results game={game} result={result} onRetry={start} />
+              <Results game={game} result={result} onRetry={start} candidate={mode === 'candidate'} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -410,7 +431,7 @@ function ScoreRing({ score, tone }: { score: number; tone: keyof typeof FEEDBACK
   )
 }
 
-function Results({ game, result, onRetry }: { game: GameDef; result: Result; onRetry: () => void }) {
+function Results({ game, result, onRetry, candidate }: { game: GameDef; result: Result; onRetry: () => void; candidate?: boolean }) {
   const tone = scoreTone(result.score)
   const [saveOpen, setSaveOpen] = useState(false)
   const [savedTo, setSavedTo] = useState<string | null>(null)
@@ -472,14 +493,22 @@ function Results({ game, result, onRetry }: { game: GameDef; result: Result; onR
           transition={{ ...MODAL_TRANSITION, delay: 0.45 }}
           className="mt-6 flex flex-wrap items-center gap-3"
         >
-          <Button variant="outline" onClick={onRetry}>
-            <RotateCcw /> REPETIR
-          </Button>
-          <Button variant={savedTo ? 'success' : 'primary'} onClick={() => setSaveOpen(true)}>
-            {savedTo ? <ClipboardCheck /> : <Save />}
-            {savedTo ? 'GUARDADO' : 'GUARDAR EN ENTREVISTA'}
-          </Button>
-          {savedTo && <span className="font-mono text-[11px] tracking-[0.12em] text-muted">→ {savedTo}</span>}
+          {candidate ? (
+            <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.14em] text-emerald-300">
+              <ClipboardCheck className="size-4" /> RESULTADO ENVIADO AL ENTREVISTADOR
+            </span>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onRetry}>
+                <RotateCcw /> REPETIR
+              </Button>
+              <Button variant={savedTo ? 'success' : 'primary'} onClick={() => setSaveOpen(true)}>
+                {savedTo ? <ClipboardCheck /> : <Save />}
+                {savedTo ? 'GUARDADO' : 'GUARDAR EN ENTREVISTA'}
+              </Button>
+              {savedTo && <span className="font-mono text-[11px] tracking-[0.12em] text-muted">→ {savedTo}</span>}
+            </>
+          )}
         </motion.div>
       </div>
 

@@ -11,7 +11,7 @@ import { neon } from '@neondatabase/serverless'
 type Req = { method?: string; query?: Record<string, string | string[]>; body?: unknown; url?: string }
 type Res = { status: (n: number) => Res; setHeader: (k: string, v: string) => void; json: (b: unknown) => void }
 
-const KINDS = new Set(['cand', 'iv', 'ans', 'inc', 'join'])
+const KINDS = new Set(['cand', 'iv', 'ans', 'inc', 'join', 'snap', 'game'])
 const CONN = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL_UNPOOLED || ''
 const sql = CONN ? neon(CONN) : null
 

@@ -35,6 +35,23 @@ Opcional: `VITE_ACCESS_CODE` en Environment Variables para pedir un código al e
 5. Sus respuestas e incidencias (cambio de pestaña, pérdida de foco, salida de pantalla completa, pegado) llegan en tiempo real. Evalúa con 1/2/3 y navega con ← →.
 6. **Finalizar** calcula el resultado (APTO ≥ 70, REVISIÓN 55–69, NO APTO < 55).
 
+## Control de integridad del postulante
+
+Antes de entrar a la sala, el postulante pasa un **control de seguridad**:
+
+- **Sólo ordenador:** móviles y tablets quedan bloqueados.
+- **Un único monitor:** si hay pantallas extra (`screen.isExtended`) no puede continuar.
+- **Compartir pantalla completa:** se exige compartir el monitor entero (no una ventana ni pestaña). El entrevistador ve una captura cada ~4 s en la sala.
+- **Pantalla completa** del navegador.
+
+Si durante la sesión deja de compartir, conecta otro monitor o sale de pantalla completa, su vista se bloquea hasta que lo corrija y se registra una **incidencia crítica**. También se registran cambio de pestaña, pérdida de foco y pegado de texto.
+
+Requiere Google Chrome o Microsoft Edge en un ordenador. Una web no puede bloquear el sistema operativo ni impedir el uso de otros dispositivos: lo que hace es detectarlo y dejar constancia.
+
+## Pruebas psicotécnicas en directo
+
+Desde la sala, el entrevistador **lanza** cualquiera de las 5 pruebas: se abre en la pantalla del postulante, el entrevistador ve su progreso y su pantalla en directo, y la nota se guarda automáticamente en la entrevista.
+
 ## Desarrollo
 
 ```bash

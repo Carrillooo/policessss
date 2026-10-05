@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Answer, Candidate, Incident, IncidentType, Interview, TimelineEvent, Verdict } from '@/data/types'
+import type { Answer, Candidate, GameRun, Incident, IncidentType, Interview, ScreenSnap, TimelineEvent, Verdict } from '@/data/types'
 import { INCIDENT_LABEL } from '@/data/types'
 import { QUESTIONS } from '@/data/questions'
 import { computeScore } from '@/data/scoring'
@@ -14,7 +14,7 @@ export const QUESTIONS_PER_INTERVIEW = 30
 /* Registros crudos (lo que se guarda)                                 */
 /* ------------------------------------------------------------------ */
 /** Documento de entrevista: lo escribe sólo el entrevistador */
-type InterviewDoc = Omit<Interview, 'answers' | 'incidents' | 'candidateJoinedAt'>
+type InterviewDoc = Omit<Interview, 'answers' | 'incidents' | 'candidateJoinedAt' | 'screen' | 'gameRuns'>
 /** Lo escribe sólo el postulante */
 interface AnswerRec extends Answer {
   interviewId: string
@@ -28,6 +28,12 @@ interface JoinRec {
   interviewId: string
   at: number
 }
+interface SnapRec extends ScreenSnap {
+  interviewId: string
+}
+interface GameRec extends GameRun {
+  interviewId: string
+}
 
 interface Raw {
   cands: Record<string, Candidate>
@@ -35,6 +41,8 @@ interface Raw {
   answers: Record<string, AnswerRec>
   incidents: Record<string, IncidentRec>
   joins: Record<string, JoinRec>
+  snaps: Record<string, SnapRec>
+  gameRecs: Record<string, GameRec>
 }
 
 interface Session {
@@ -70,6 +78,10 @@ interface AppState extends Raw {
   joinInterview: (id: string) => void
   submitAnswer: (id: string, questionId: string, text: string) => void
   reportIncident: (id: string, type: IncidentType) => void
+  pushSnapshot: (id: string, snap: ScreenSnap) => void
+  updateGameRun: (id: string, run: GameRun) => void
+  /* Entrevistador: lanzar / retirar una prueba al postulante */
+  launchGame: (id: string, gameId: string | null) => void
 }
 
 const ev = (kind: TimelineEvent['kind'], label: string, tone: TimelineEvent['tone'], at = Date.now()): TimelineEvent => ({
@@ -92,6 +104,9 @@ function derive(raw: Raw): Pick<AppState, 'candidates' | 'interviews'> {
   const incBy: Record<string, IncidentRec[]> = {}
   for (const i of Object.values(raw.incidents)) (incBy[i.interviewId] ??= []).push(i)
 
+  const runsBy: Record<string, Record<string, GameRun>> = {}
+  for (const g of Object.values(raw.gameRecs)) (runsBy[g.interviewId] ??= {})[g.gameId] = g
+
   const interviews = Object.values(raw.docs)
     .map((doc): Interview => {
       const ans = answersBy[doc.id] ?? []
@@ -104,6 +119,14 @@ function derive(raw: Raw): Pick<AppState, 'candidates' | 'interviews'> {
         timeline.push({ id: 'ans-' + doc.id + a.questionId, at: a.firstAt, kind: 'answer', label: `RESPUESTA ${n} RECIBIDA`, tone: 'brand' })
       }
       for (const i of incs) timeline.push({ id: 'inc-' + i.id, at: i.at, kind: 'incident', label: INCIDENT_LABEL[i.type], tone: i.critical ? 'danger' : 'warn' })
+      const runs = runsBy[doc.id] ?? {}
+      const games = { ...doc.games }
+      for (const r of Object.values(runs)) {
+        if (r.status !== 'done') continue
+        games[r.gameId] = r.score
+        timeline.push({ id: 'game-' + doc.id + r.gameId, at: r.at, kind: 'game', label: `PRUEBA ${r.gameId.toUpperCase()} · ${r.score}`, tone: 'brand' })
+      }
+      const snap = raw.snaps[`${doc.id}__snap`]
       timeline.sort((a, b) => a.at - b.at)
       return {
         ...doc,
@@ -112,6 +135,9 @@ function derive(raw: Raw): Pick<AppState, 'candidates' | 'interviews'> {
         answers: Object.fromEntries(ans.map((a) => [a.questionId, { text: a.text, receivedAt: a.receivedAt }])),
         incidents: incs.map(({ interviewId: _, ...i }) => i),
         timeline,
+        games,
+        gameRuns: runs,
+        screen: snap ? { image: snap.image, at: snap.at, sharing: snap.sharing, extended: snap.extended, fullscreen: snap.fullscreen } : undefined,
       }
     })
     .sort((a, b) => b.createdAt - a.createdAt)
@@ -120,7 +146,7 @@ function derive(raw: Raw): Pick<AppState, 'candidates' | 'interviews'> {
   return { candidates, interviews }
 }
 
-const EMPTY_RAW: Raw = { cands: {}, docs: {}, answers: {}, incidents: {}, joins: {} }
+const EMPTY_RAW: Raw = { cands: {}, docs: {}, answers: {}, incidents: {}, joins: {}, snaps: {}, gameRecs: {} }
 
 function applyRecord(raw: Raw, r: DbRecord): Raw {
   switch (r.kind) {
@@ -134,12 +160,18 @@ function applyRecord(raw: Raw, r: DbRecord): Raw {
       return { ...raw, incidents: { ...raw.incidents, [r.id]: r.data as IncidentRec } }
     case 'join':
       return { ...raw, joins: { ...raw.joins, [r.id]: r.data as JoinRec } }
+    case 'snap':
+      return { ...raw, snaps: { ...raw.snaps, [r.id]: r.data as SnapRec } }
+    case 'game':
+      return { ...raw, gameRecs: { ...raw.gameRecs, [r.id]: r.data as GameRec } }
+    default:
+      return raw
   }
 }
 
 function removeRecord(raw: Raw, id: string): Raw {
   const next = { ...raw }
-  for (const k of ['cands', 'docs', 'answers', 'incidents', 'joins'] as const) {
+  for (const k of ['cands', 'docs', 'answers', 'incidents', 'joins', 'snaps', 'gameRecs'] as const) {
     if (id in next[k]) {
       const copy = { ...next[k] } as Record<string, unknown>
       delete copy[id]
@@ -156,7 +188,7 @@ const joinKey = (ivId: string) => `${ivId}__join`
 export const useApp = create<AppState>()(
   persist(
     (set, get) => {
-      const rawOf = (s: AppState): Raw => ({ cands: s.cands, docs: s.docs, answers: s.answers, incidents: s.incidents, joins: s.joins })
+      const rawOf = (s: AppState): Raw => ({ cands: s.cands, docs: s.docs, answers: s.answers, incidents: s.incidents, joins: s.joins, snaps: s.snaps, gameRecs: s.gameRecs })
       const apply = (r: DbRecord) =>
         set((s) => {
           const raw = applyRecord(rawOf(s), r)
@@ -233,6 +265,8 @@ export const useApp = create<AppState>()(
           const ids = [
             id,
             joinKey(id),
+            `${id}__snap`,
+            ...Object.keys(s.gameRecs).filter((k) => s.gameRecs[k].interviewId === id),
             ...Object.keys(s.answers).filter((k) => s.answers[k].interviewId === id),
             ...Object.keys(s.incidents).filter((k) => s.incidents[k].interviewId === id),
           ]
@@ -312,11 +346,22 @@ export const useApp = create<AppState>()(
           const iv = merged(id)
           if (!iv || iv.status !== 'live') return
           const sameType = iv.incidents.filter((i) => i.type === type).length
-          // Salida de pantalla completa o reincidencia (3ª vez) → crítica
-          const critical = type === 'FULLSCREEN_EXIT' || sameType >= 2
+          // Pantalla completa, compartir pantalla, monitores o reincidencia (3ª vez) → crítica
+          const critical = type === 'FULLSCREEN_EXIT' || type === 'SCREEN_SHARE_STOPPED' || type === 'MULTI_MONITOR' || sameType >= 2
           const incId = uid('inc_')
           write({ id: incId, kind: 'inc', data: { interviewId: id, id: incId, type, at: Date.now(), critical } satisfies IncidentRec })
         },
+
+        pushSnapshot: (id, snap) => write({ id: `${id}__snap`, kind: 'snap', data: { interviewId: id, ...snap } satisfies SnapRec }),
+
+        updateGameRun: (id, run) => write({ id: `${id}__game__${run.gameId}`, kind: 'game', data: { interviewId: id, ...run } satisfies GameRec }),
+
+        launchGame: (id, gameId) =>
+          void writeDoc(id, (x) => ({
+            ...x,
+            activeGame: gameId ? { id: gameId, launchedAt: Date.now() } : null,
+            timeline: gameId ? [...x.timeline, ev('game', `PRUEBA ${gameId.toUpperCase()} LANZADA`, 'neutral')] : x.timeline,
+          })),
       }
     },
     {

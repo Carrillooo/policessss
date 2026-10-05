@@ -13,7 +13,7 @@
  *    DATABASE_URL en el servidor; aquí se sincroniza por sondeo rápido.
  * 3. Local — localStorage + BroadcastChannel (sólo este navegador).
  */
-export type RecordKind = 'cand' | 'iv' | 'ans' | 'inc' | 'join'
+export type RecordKind = 'cand' | 'iv' | 'ans' | 'inc' | 'join' | 'snap' | 'game'
 export interface DbRecord<T = unknown> {
   id: string
   kind: RecordKind

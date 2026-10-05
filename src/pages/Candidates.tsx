@@ -412,7 +412,6 @@ function CandidateRow({
           <Avatar name={c.name} status={c.status} />
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-fg">{c.name}</div>
-            <div className="tabular truncate font-mono text-[11px] text-dim">{c.discord}</div>
           </div>
           <div className="ml-auto lg:hidden">
             <CandidateStatusBadge status={c.status} />

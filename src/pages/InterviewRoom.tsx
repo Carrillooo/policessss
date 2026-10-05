@@ -430,7 +430,7 @@ export default function InterviewRoom() {
                 </AnimatePresence>
               </div>
 
-              <AnswerCard iv={iv} questionId={qid} />
+              <AnswerCard key={qid} iv={iv} questionId={qid} />
 
               {/* Evaluación + navegación */}
               <div className="panel space-y-3 p-4">

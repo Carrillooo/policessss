@@ -87,15 +87,35 @@ const seen = new Map<string, number>()
 const writtenAt = new Map<string, number>()
 let cursor = 0
 
+/** La API existe pero ha devuelto un error (p. ej. falta DATABASE_URL) */
+class ApiError extends Error {}
+/** No hay API (desarrollo local / hosting estático) */
+class NoApiError extends Error {}
+
 async function api<T>(method: 'GET' | 'POST' | 'DELETE', body?: unknown, query = ''): Promise<T> {
-  const res = await fetch(API + query, {
-    method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    cache: 'no-store',
-  })
-  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) throw new Error(`API ${res.status}`)
-  return res.json() as Promise<T>
+  let res: Response
+  try {
+    res = await fetch(API + query, {
+      method,
+      headers: body ? { 'content-type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      cache: 'no-store',
+    })
+  } catch {
+    throw new ApiError('Sin conexión con el servidor')
+  }
+  if (!res.headers.get('content-type')?.includes('application/json')) throw new NoApiError(`API ${res.status}`)
+  const json = (await res.json()) as T & { error?: string }
+  if (!res.ok) throw new ApiError(json.error ?? `Error ${res.status}`)
+  return json
+}
+
+/* Errores visibles para el usuario */
+let lastError = ''
+const errorListeners = new Set<(msg: string) => void>()
+function reportError(msg: string) {
+  lastError = msg
+  errorListeners.forEach((l) => l(msg))
 }
 
 function ingest(rows: ApiRow[]) {
@@ -117,8 +137,9 @@ function startPolling() {
       ingest(records)
       cursor = now
       setStatus('online')
-    } catch {
+    } catch (err) {
       setStatus('error')
+      if (err instanceof Error && err.message !== lastError) reportError(err.message)
     }
     timer = setTimeout(tick, document.hidden ? POLL_HIDDEN : POLL_VISIBLE)
   }
@@ -139,6 +160,13 @@ export const db = {
   },
   get backend() {
     return backend
+  },
+  get lastError() {
+    return lastError
+  },
+  onError(l: (msg: string) => void) {
+    errorListeners.add(l)
+    return () => void errorListeners.delete(l)
   },
   onStatus(l: (s: DbStatus) => void) {
     statusListeners.add(l)
@@ -185,7 +213,15 @@ export const db = {
       setStatus('online')
       startPolling()
       return records.map(({ id, kind, data }) => ({ id, kind, data }))
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // La API existe pero falla: NO caer a modo local (crearía datos invisibles para el postulante)
+        backend = 'api'
+        setStatus('error')
+        reportError(err.message)
+        startPolling()
+        return []
+      }
       /* no hay API: modo local */
     }
 
@@ -218,6 +254,7 @@ export const db = {
         writtenAt.delete(rec.id)
         console.error('[db] upsert', err)
         setStatus('error')
+        reportError('No se pudo guardar en el servidor: ' + (err instanceof Error ? err.message : String(err)))
       }
       return
     }

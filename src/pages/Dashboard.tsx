@@ -156,7 +156,15 @@ export default function Dashboard() {
 
   return (
     <Page>
-      {db.status === 'local' && (
+      {db.backend !== 'local' && db.status === 'error' && db.lastError && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3 text-sm text-red-100/90">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-red-300" />
+          <p>
+            <b className="font-semibold">Error de servidor:</b> {db.lastError}
+          </p>
+        </div>
+      )}
+      {db.backend === 'local' && (
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-100/90">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-300" />
           <p>

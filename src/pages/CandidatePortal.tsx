@@ -22,6 +22,7 @@ import { DEFAULT_TRANSITION, EASE, EXIT_TRANSITION, PAGE_TRANSITION, questionVar
 import { questionById } from '@/data/questions'
 import type { IncidentType } from '@/data/types'
 import { useApp, useCandidate } from '@/store/app-store'
+import { db } from '@/lib/db'
 
 type Phase = 'connecting' | 'verified' | 'waiting' | 'started' | 'live' | 'finished' | 'invalid'
 
@@ -155,6 +156,14 @@ function Session({ code }: { code: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iv?.currentIndex])
 
+  // Si no aparece todavía, esperar unos segundos a la sincronización antes de darlo por inválido
+  const [searching, setSearching] = useState(db.backend !== 'local')
+  useEffect(() => {
+    if (iv || !searching) return
+    const t = setTimeout(() => setSearching(false), 8000)
+    return () => clearTimeout(t)
+  }, [iv, searching])
+
   const phase: Phase = !iv
     ? 'invalid'
     : iv.status === 'finished'
@@ -169,12 +178,30 @@ function Session({ code }: { code: string }) {
 
   useIntegrity(phase === 'live', (t) => iv && reportIncident(iv.id, t))
 
+  if (phase === 'invalid' && searching)
+    return (
+      <Shell>
+        <div className="flex flex-col items-center gap-5 text-center">
+          <RadarLoader size={64} />
+          <DecryptedText text="BUSCANDO SESIÓN" className="text-sm font-semibold tracking-[0.3em] text-sky-200" />
+        </div>
+      </Shell>
+    )
+
   if (phase === 'invalid')
     return (
       <Shell>
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="max-w-md text-center">
           <DecryptedText text="CÓDIGO NO VÁLIDO" className="text-lg font-semibold tracking-[0.3em] text-red-300" />
           <p className="mt-2 text-sm text-muted">Comprueba el código con tu entrevistador.</p>
+          {db.backend === 'local' && (
+            <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3 text-xs text-amber-200">
+              El sistema está en modo local (sin base de datos), así que este enlace sólo funciona en el navegador donde se creó la entrevista.
+            </p>
+          )}
+          {db.backend !== 'local' && db.lastError && (
+            <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/[0.06] p-3 text-xs text-red-200">Error del servidor: {db.lastError}</p>
+          )}
           <Button className="mt-6" onClick={() => (window.location.href = '/portal')}>
             Volver
           </Button>

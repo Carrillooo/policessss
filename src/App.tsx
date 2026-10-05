@@ -6,6 +6,8 @@ import { Toaster } from '@/components/feedback/Toaster'
 import { SystemLoader } from '@/components/feedback/SystemLoader'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useApp } from '@/store/app-store'
+import { db } from '@/lib/db'
+import { toast } from '@/components/feedback/toast-store'
 
 const Login = lazy(() => import('@/pages/Login'))
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
@@ -37,6 +39,7 @@ export default function App() {
   const loaded = useApp((s) => s.loaded)
   useEffect(() => {
     void useApp.getState().init()
+    return db.onError((msg) => toast.error('ERROR DE SERVIDOR', msg))
   }, [])
 
   if (!loaded)

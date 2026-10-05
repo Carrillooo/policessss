@@ -6,10 +6,12 @@
  * entrevista; el postulante sus respuestas, incidencias y conexión), así
  * nunca se pisan cambios simultáneos.
  *
- * - Con VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY: tabla `lspd_records`
- *   en Supabase + Realtime (postgres_changes) → funciona entre dispositivos.
- *   SQL de creación en `supabase/schema.sql`.
- * - Sin Supabase: localStorage + BroadcastChannel → sólo este navegador.
+ * Backends (se elige automáticamente):
+ * 1. Supabase — si existen VITE_/NEXT_PUBLIC_SUPABASE_URL y _ANON_KEY.
+ *    Tiempo real con postgres_changes. SQL en `supabase/schema.sql`.
+ * 2. API (Vercel + Neon) — si responde `/api/records`. La función usa
+ *    DATABASE_URL en el servidor; aquí se sincroniza por sondeo rápido.
+ * 3. Local — localStorage + BroadcastChannel (sólo este navegador).
  */
 export type RecordKind = 'cand' | 'iv' | 'ans' | 'inc' | 'join'
 export interface DbRecord<T = unknown> {
@@ -22,17 +24,23 @@ type UpsertHandler = (r: DbRecord) => void
 type DeleteHandler = (id: string) => void
 
 const env = import.meta.env as Record<string, string | undefined>
-const url = env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL
-const key = env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supaUrl = env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL
+const supaKey = env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const TABLE = 'lspd_records'
 const LS_KEY = 'lspd-db-v2'
+const API = '/api/records'
+/** Intervalo de sondeo (ms) con la pestaña visible / oculta */
+const POLL_VISIBLE = 1200
+const POLL_HIDDEN = 5000
 
-export const remoteEnabled = Boolean(url && key)
-
+export type Backend = 'local' | 'supabase' | 'api'
 export type DbStatus = 'local' | 'connecting' | 'online' | 'error'
-let status: DbStatus = remoteEnabled ? 'connecting' : 'local'
+
+let backend: Backend = 'local'
+let status: DbStatus = 'connecting'
 const statusListeners = new Set<(s: DbStatus) => void>()
 const setStatus = (s: DbStatus) => {
+  if (s === status) return
   status = s
   statusListeners.forEach((l) => l(s))
 }
@@ -64,62 +72,153 @@ function writeLocal(all: Record<string, DbRecord>) {
 type SupaClient = import('@supabase/supabase-js').SupabaseClient
 let clientPromise: Promise<SupaClient> | null = null
 function client() {
-  clientPromise ??= import('@supabase/supabase-js').then(({ createClient }) => createClient(url!, key!))
+  clientPromise ??= import('@supabase/supabase-js').then(({ createClient }) => createClient(supaUrl!, supaKey!))
   return clientPromise
 }
+
+/* ---------------- API (Vercel Functions + Neon) ------------------ */
+interface ApiRow extends DbRecord {
+  deleted: boolean
+  updated_at: number
+}
+/** Última versión conocida de cada registro (evita re-aplicar lo mismo) */
+const seen = new Map<string, number>()
+/** Registros escritos aquí: ignorar versiones del servidor más antiguas */
+const writtenAt = new Map<string, number>()
+let cursor = 0
+
+async function api<T>(method: 'GET' | 'POST' | 'DELETE', body?: unknown, query = ''): Promise<T> {
+  const res = await fetch(API + query, {
+    method,
+    headers: body ? { 'content-type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store',
+  })
+  if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) throw new Error(`API ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+function ingest(rows: ApiRow[]) {
+  for (const r of rows) {
+    if ((seen.get(r.id) ?? -1) >= r.updated_at) continue
+    if ((writtenAt.get(r.id) ?? -1) > r.updated_at) continue
+    seen.set(r.id, r.updated_at)
+    if (r.deleted) emitDelete(r.id)
+    else emitUpsert({ id: r.id, kind: r.kind, data: r.data })
+  }
+}
+
+function startPolling() {
+  let timer: ReturnType<typeof setTimeout>
+  const tick = async () => {
+    try {
+      // Pequeño solape para tolerar desfases de reloj entre instancias
+      const { now, records } = await api<{ now: number; records: ApiRow[] }>('GET', undefined, `?since=${Math.max(1, cursor - 3000)}`)
+      ingest(records)
+      cursor = now
+      setStatus('online')
+    } catch {
+      setStatus('error')
+    }
+    timer = setTimeout(tick, document.hidden ? POLL_HIDDEN : POLL_VISIBLE)
+  }
+  timer = setTimeout(tick, POLL_VISIBLE)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      clearTimeout(timer)
+      void tick()
+    }
+  })
+}
+
+/* ---------------------------------------------------------------- */
 
 export const db = {
   get status() {
     return status
+  },
+  get backend() {
+    return backend
   },
   onStatus(l: (s: DbStatus) => void) {
     statusListeners.add(l)
     return () => void statusListeners.delete(l)
   },
 
-  /** Carga inicial de todos los registros y suscripción a cambios */
+  /** Elige backend, hace la carga inicial y se suscribe a cambios */
   async start(): Promise<DbRecord[]> {
-    if (!remoteEnabled) {
-      bc?.addEventListener('message', (e) => {
-        const m = e.data as { op: 'upsert'; rec: DbRecord } | { op: 'delete'; id: string }
-        if (m.op === 'upsert') emitUpsert(m.rec)
-        else emitDelete(m.id)
-      })
-      return Object.values(readLocal())
-    }
-    try {
-      const sb = await client()
-      sb.channel('lspd-records')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, (p) => {
-          if (p.eventType === 'DELETE') emitDelete((p.old as { id: string }).id)
-          else emitUpsert(p.new as DbRecord)
-        })
-        .subscribe((s) => {
-          if (s === 'SUBSCRIBED') setStatus('online')
-          else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') setStatus('error')
-        })
-      const all: DbRecord[] = []
-      // Paginación por si hay muchos registros
-      for (let from = 0; ; from += 1000) {
-        const { data, error } = await sb.from(TABLE).select('id,kind,data').range(from, from + 999)
-        if (error) throw error
-        all.push(...(data as DbRecord[]))
-        if (!data || data.length < 1000) break
+    // 1. Supabase
+    if (supaUrl && supaKey) {
+      backend = 'supabase'
+      try {
+        const sb = await client()
+        sb.channel('lspd-records')
+          .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, (p) => {
+            if (p.eventType === 'DELETE') emitDelete((p.old as { id: string }).id)
+            else emitUpsert(p.new as DbRecord)
+          })
+          .subscribe((s) => {
+            if (s === 'SUBSCRIBED') setStatus('online')
+            else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') setStatus('error')
+          })
+        const all: DbRecord[] = []
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await sb.from(TABLE).select('id,kind,data').range(from, from + 999)
+          if (error) throw error
+          all.push(...(data as DbRecord[]))
+          if (!data || data.length < 1000) break
+        }
+        return all
+      } catch (err) {
+        console.error('[db] Supabase', err)
+        setStatus('error')
+        return []
       }
-      return all
-    } catch (err) {
-      console.error('[db] No se pudo conectar con Supabase', err)
-      setStatus('error')
-      return []
     }
+
+    // 2. API del servidor (Vercel + Neon)
+    try {
+      const { now, records } = await api<{ now: number; records: ApiRow[] }>('GET', undefined, '?since=0')
+      backend = 'api'
+      cursor = now
+      records.forEach((r) => seen.set(r.id, r.updated_at))
+      setStatus('online')
+      startPolling()
+      return records.map(({ id, kind, data }) => ({ id, kind, data }))
+    } catch {
+      /* no hay API: modo local */
+    }
+
+    // 3. Local
+    backend = 'local'
+    setStatus('local')
+    bc?.addEventListener('message', (e) => {
+      const m = e.data as { op: 'upsert'; rec: DbRecord } | { op: 'delete'; id: string }
+      if (m.op === 'upsert') emitUpsert(m.rec)
+      else emitDelete(m.id)
+    })
+    return Object.values(readLocal())
   },
 
   async upsert(rec: DbRecord) {
-    if (!remoteEnabled) {
+    if (backend === 'local') {
       const all = readLocal()
       all[rec.id] = rec
       writeLocal(all)
       bc?.postMessage({ op: 'upsert', rec })
+      return
+    }
+    if (backend === 'api') {
+      writtenAt.set(rec.id, Number.MAX_SAFE_INTEGER)
+      try {
+        const { now } = await api<{ now: number }>('POST', { records: [rec] })
+        writtenAt.set(rec.id, now)
+        seen.set(rec.id, now)
+      } catch (err) {
+        writtenAt.delete(rec.id)
+        console.error('[db] upsert', err)
+        setStatus('error')
+      }
       return
     }
     const sb = await client()
@@ -132,11 +231,20 @@ export const db = {
 
   async remove(ids: string[]) {
     if (!ids.length) return
-    if (!remoteEnabled) {
+    if (backend === 'local') {
       const all = readLocal()
       ids.forEach((id) => delete all[id])
       writeLocal(all)
       ids.forEach((id) => bc?.postMessage({ op: 'delete', id }))
+      return
+    }
+    if (backend === 'api') {
+      try {
+        const { now } = await api<{ now: number }>('DELETE', { ids })
+        ids.forEach((id) => seen.set(id, now))
+      } catch (err) {
+        console.error('[db] delete', err)
+      }
       return
     }
     const sb = await client()

@@ -21,8 +21,8 @@ function SystemStatus() {
     <div className="hidden items-center gap-3 rounded-lg border border-line bg-white/[0.02] px-3 py-1.5 md:flex">
       <LiveIndicator label={label} tone={tone} />
       <span className="h-3 w-px bg-line-strong" />
-      <span className="font-mono text-[10.5px] tracking-widest text-muted" title={t === 'local' ? 'Los datos sólo existen en este navegador' : 'Supabase Realtime'}>
-        {t === 'local' ? 'RT·LOCAL' : 'RT·SUPABASE'}
+      <span className="font-mono text-[10.5px] tracking-widest text-muted" title={t === 'local' ? 'Los datos sólo existen en este navegador' : 'Base de datos compartida'}>
+        {{ local: 'RT·LOCAL', supabase: 'RT·SUPABASE', api: 'RT·NEON' }[db.backend]}
       </span>
       <span className="h-3 w-px bg-line-strong" />
       <span className="tabular font-mono text-[10.5px] tracking-widest text-muted">{formatClock(now)}</span>

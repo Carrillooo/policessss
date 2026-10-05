@@ -5,14 +5,14 @@ import { Check, Copy, ExternalLink, Mic, Plus, Radio, Search } from 'lucide-reac
 import { Page, PageHeader } from '@/components/app/PageHeader'
 import { InterviewStatusBadge, ResultBadge } from '@/components/app/StatusBadge'
 import { EmptyState } from '@/components/app/EmptyState'
-import { CountUp, SpotlightCard } from '@/components/reactbits'
+import { SpotlightCard } from '@/components/reactbits'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { toast } from '@/components/feedback/toast-store'
-import { INDICATOR_SPRING, DEFAULT_TRANSITION, EXIT_TRANSITION, FAST_TRANSITION } from '@/lib/animations'
-import { useApp } from '@/store/app-store'
+import { INDICATOR_SPRING, DEFAULT_TRANSITION, EXIT_TRANSITION } from '@/lib/animations'
+import { QUESTIONS_PER_INTERVIEW, useApp } from '@/store/app-store'
 import { cn, formatClock, normalize, portalLink } from '@/lib/utils'
 import type { InterviewStatus } from '@/data/types'
 
@@ -24,30 +24,40 @@ const FILTERS: { id: 'all' | InterviewStatus; label: string }[] = [
   { id: 'finished', label: 'Finalizadas' },
 ]
 
+const DISCORD_ID = /^\d{17,20}$/
+
 function NewInterviewDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const candidates = useApp((s) => s.candidates)
-  const createInterview = useApp((s) => s.createInterview)
+  const createInterviewFor = useApp((s) => s.createInterviewFor)
   const navigate = useNavigate()
-  const [candidateId, setCandidateId] = useState('')
-  const [count, setCount] = useState(12)
+  const [name, setName] = useState('')
+  const [discord, setDiscord] = useState('')
+  const [tried, setTried] = useState(false)
   const [created, setCreated] = useState<{ id: string; code: string } | null>(null)
   const [copied, setCopied] = useState(false)
-  const eligible = candidates.filter((c) => c.status === 'pendiente' || c.status === 'revision')
 
   useEffect(() => {
     if (open) {
       setCreated(null)
       setCopied(false)
-      setCandidateId(eligible[0]?.id ?? '')
+      setName('')
+      setDiscord('')
+      setTried(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const create = () => {
-    if (!candidateId) return
-    const iv = createInterview(candidateId, count)
+  const errors = {
+    name: name.trim().length < 3 ? 'Escribe el nombre del postulante.' : '',
+    discord: !DISCORD_ID.test(discord.trim()) ? 'El ID de Discord son 17–20 dígitos (Ajustes → Avanzado → Modo desarrollador → Copiar ID).' : '',
+  }
+  const valid = !errors.name && !errors.discord
+
+  const create = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    setTried(true)
+    if (!valid) return
+    const iv = createInterviewFor(name, discord)
     setCreated({ id: iv.id, code: iv.code })
-    toast.success('ENTREVISTA CREADA', `Código ${iv.code}`)
+    toast.success('ENTREVISTA CREADA', `Código ${iv.code} · ${QUESTIONS_PER_INTERVIEW} preguntas`)
   }
 
   const copy = async () => {
@@ -63,58 +73,47 @@ function NewInterviewDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={created ? 'Entrevista creada' : 'Nueva entrevista'} description={created ? 'Comparte el enlace seguro con el postulante.' : 'Selecciona al postulante y el número de preguntas.'}>
+    <Dialog open={open} onOpenChange={onOpenChange} title={created ? 'Entrevista creada' : 'Nueva entrevista'} description={created ? 'Comparte el enlace con el postulante. Verás aquí cuando se conecte.' : 'Introduce los datos del postulante.'}>
       <AnimatePresence mode="wait" initial={false}>
         {!created ? (
           <motion.div key="form" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10, transition: EXIT_TRANSITION }} transition={DEFAULT_TRANSITION} className="space-y-5">
-            <div>
-              <label className="label-caps mb-2 block">Postulante</label>
-              <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
-                {eligible.length === 0 && <p className="text-sm text-muted">No hay postulantes pendientes.</p>}
-                {eligible.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setCandidateId(c.id)}
-                    className={cn(
-                      'relative flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors',
-                      candidateId === c.id ? 'border-blue-400/50 bg-blue-500/10' : 'border-line hover:border-line-strong hover:bg-white/[0.02]',
-                    )}
-                  >
-                    <span className="grid size-8 place-items-center rounded-md bg-white/[0.04] font-display font-bold">{c.name.split(' ').map((p) => p[0]).join('').slice(0, 2)}</span>
-                    <span className="flex-1">
-                      <span className="block font-medium">{c.name}</span>
-                      <span className="font-mono text-[11px] text-dim">{c.citizenId}</span>
-                    </span>
-                    <AnimatePresence>
-                      {candidateId === c.id && (
-                        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={FAST_TRANSITION}>
-                          <Check className="size-4 text-blue-300" />
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="mb-2 flex justify-between">
-                <label className="label-caps" htmlFor="qcount">
-                  Preguntas
+            <form onSubmit={create} className="space-y-4">
+              <div>
+                <label htmlFor="ni-name" className="label-caps mb-1.5 block">
+                  Nombre del postulante
                 </label>
-                <span className="font-display text-lg font-bold">
-                  <CountUp value={count} duration={0.25} />
-                </span>
+                <Input id="ni-name" autoFocus autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre y apellido" aria-invalid={tried && !!errors.name} />
+                {tried && errors.name && <p className="mt-1 text-xs text-red-300">{errors.name}</p>}
               </div>
-              <input id="qcount" type="range" min={6} max={18} value={count} onChange={(e) => setCount(+e.target.value)} className="w-full accent-blue-500" />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
-              <Button variant="primary" onClick={create} disabled={!candidateId}>
-                <Plus /> Crear entrevista
-              </Button>
-            </div>
+              <div>
+                <label htmlFor="ni-discord" className="label-caps mb-1.5 block">
+                  ID de Discord
+                </label>
+                <Input
+                  id="ni-discord"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={discord}
+                  onChange={(e) => setDiscord(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456789012345678"
+                  className="font-mono"
+                  aria-invalid={tried && !!errors.discord}
+                />
+                {tried && errors.discord && <p className="mt-1 text-xs text-red-300">{errors.discord}</p>}
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-line bg-white/[0.02] px-3 py-2.5 text-xs text-muted">
+                <span className="font-display text-xl font-bold text-blue-200">{QUESTIONS_PER_INTERVIEW}</span>
+                preguntas aleatorias del banco
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="primary">
+                  <Plus /> Crear
+                </Button>
+              </div>
+            </form>
           </motion.div>
         ) : (
           <motion.div key="done" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={DEFAULT_TRANSITION} className="space-y-5">
@@ -245,7 +244,27 @@ export default function Interviews() {
                         {iv.code} · {formatClock(iv.createdAt)}
                       </div>
                     </div>
-                    <InterviewStatusBadge status={iv.status} />
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {iv.status !== 'finished' && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              await navigator.clipboard.writeText(portalLink(iv.code))
+                            } catch {
+                              /* noop */
+                            }
+                            toast.info('LINK COPIADO', iv.code)
+                          }}
+                          className="grid size-6 place-items-center rounded-md text-dim transition-colors hover:bg-white/5 hover:text-blue-300"
+                          aria-label="Copiar enlace del postulante"
+                          title="Copiar enlace del postulante"
+                        >
+                          <Copy className="size-3.5" />
+                        </button>
+                      )}
+                      <InterviewStatusBadge status={iv.status} />
+                    </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs text-muted">
                     <span>{iv.interviewer}</span>

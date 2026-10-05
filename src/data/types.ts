@@ -34,8 +34,7 @@ export type CandidateStatus = 'pendiente' | 'en_entrevista' | 'apto' | 'no_apto'
 export interface Candidate {
   id: string
   name: string
-  citizenId: string
-  age: number
+  /** ID de Discord (numérico) */
   discord: string
   appliedAt: number
   status: CandidateStatus

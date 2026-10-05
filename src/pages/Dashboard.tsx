@@ -27,6 +27,7 @@ import { LiveIndicator, PulseDot } from '@/components/feedback/LiveIndicator'
 import { cardVariants, staggerContainer, STAGGER, DEFAULT_TRANSITION } from '@/lib/animations'
 import { computeScore } from '@/data/scoring'
 import { useApp } from '@/store/app-store'
+import { db } from '@/lib/db'
 import { useNow } from '@/hooks/useNow'
 import { cn, formatClock, formatDuration } from '@/lib/utils'
 import type { Interview } from '@/data/types'
@@ -155,6 +156,15 @@ export default function Dashboard() {
 
   return (
     <Page>
+      {db.status === 'local' && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-100/90">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-300" />
+          <p>
+            <b className="font-semibold">Modo local:</b> los datos sólo existen en este navegador, así que el enlace del postulante no funcionará en otro dispositivo. Conecta Supabase
+            (ver README) para usarlo en producción.
+          </p>
+        </div>
+      )}
       {/* Cabecera con fondo vivo (único fondo animado de la página) */}
       <section className="relative mb-6 overflow-hidden rounded-2xl border border-line bg-panel/60 px-6 py-7 sm:px-8">
         <Aurora intensity={0.22} />
@@ -167,7 +177,7 @@ export default function Dashboard() {
             </motion.div>
             <BlurText
               as="h1"
-              text={`${greeting(date.getHours())}, Sgt. ${session?.name.split(' ').slice(-1)[0] ?? ''}`}
+              text={`${greeting(date.getHours())}, ${session?.name ?? ''}`}
               className="font-display text-3xl font-bold tracking-wide sm:text-4xl"
             />
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...DEFAULT_TRANSITION, delay: 0.25 }} className="mt-2 text-sm text-muted">
@@ -263,6 +273,7 @@ export default function Dashboard() {
           {/* Resultados recientes */}
           <section>
             <h2 className="label-caps mb-3 !text-[11px] !text-fg">Resultados recientes</h2>
+            {stats.recent.length === 0 && <p className="panel px-5 py-6 text-sm text-muted">Aún no hay entrevistas finalizadas.</p>}
             <motion.div variants={staggerContainer(STAGGER.fast, 0.45)} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {stats.recent.map((iv) => {
                 const tone = iv.result === 'APTO' ? 'ok' : iv.result === 'NO_APTO' ? 'danger' : 'warn'

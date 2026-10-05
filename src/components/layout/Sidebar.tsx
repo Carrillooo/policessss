@@ -103,7 +103,7 @@ export function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; 
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{session?.name}</div>
               <div className="truncate font-mono text-[10px] tracking-wider text-muted">
-                {session?.rank.toUpperCase()} · {session?.badge}
+                ENTREVISTADOR
               </div>
             </div>
           )}

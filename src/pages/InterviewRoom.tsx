@@ -16,7 +16,6 @@ import {
   ChevronRight,
   Copy,
   ExternalLink,
-  FlaskConical,
   Flag,
   MessageSquareDashed,
   Play,
@@ -51,7 +50,7 @@ import {
 import { articleById } from '@/data/normativa'
 import { questionById, QUESTION_CATEGORY_LABEL } from '@/data/questions'
 import { computeScore } from '@/data/scoring'
-import { INCIDENT_LABEL, type Incident, type IncidentType, type Interview, type Verdict } from '@/data/types'
+import { INCIDENT_LABEL, type Incident, type Interview, type Verdict } from '@/data/types'
 import { useApp, useCandidate, useInterview } from '@/store/app-store'
 import { useNow } from '@/hooks/useNow'
 import { cn, formatClockSeconds, formatDuration, portalLink } from '@/lib/utils'
@@ -258,19 +257,12 @@ function PreStart({ iv }: { iv: Interview }) {
 
 /* ------------------------------------------------------------------ */
 
-const SAMPLE_ANSWERS = [
-  'Según la normativa hay que avisar primero y pedir autorización al supervisor antes de actuar.',
-  'Comunicaría a Central la ubicación y la matrícula, y esperaría apoyo.',
-  'No, sólo si hay riesgo para la vida de alguien.',
-  'Lo primero es asegurar el perímetro y pedir un supervisor.',
-]
-
 export default function InterviewRoom() {
   const { id } = useParams()
   const iv = useInterview(id)
   const candidate = useCandidate(iv?.candidateId)
   const navigate = useNavigate()
-  const { goToQuestion, evaluate, finishInterview, submitAnswer, reportIncident } = useApp.getState()
+  const { goToQuestion, evaluate, finishInterview } = useApp.getState()
   const [dir, setDir] = useState(1)
   const [drawer, setDrawer] = useState<string | null>(null)
   const [confirmFinish, setConfirmFinish] = useState(false)
@@ -332,7 +324,7 @@ export default function InterviewRoom() {
               <InterviewStatusBadge status={iv.status} />
             </div>
             <div className="font-mono text-[11px] tracking-wider text-dim">
-              {iv.code} · {candidate?.citizenId} · {iv.interviewer}
+              {iv.code} · Discord {candidate?.discord} · {iv.interviewer}
             </div>
           </div>
         </div>
@@ -487,22 +479,6 @@ export default function InterviewRoom() {
                   <LiveIndicator label="RT" tone="brand" />
                 </div>
                 <Timeline events={iv.timeline} maxHeight={340} />
-              </div>
-              {/* Simulador para demos sin segunda pestaña */}
-              <div className="rounded-xl border border-dashed border-line p-3">
-                <div className="mb-2 flex items-center gap-2 font-mono text-[10px] tracking-[0.18em] text-dim">
-                  <FlaskConical className="size-3.5" /> SIMULADOR DEMO
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="ghost" onClick={() => submitAnswer(iv.id, qid, SAMPLE_ANSWERS[Math.floor(Math.random() * SAMPLE_ANSWERS.length)])}>
-                    Respuesta
-                  </Button>
-                  {(['TAB_SWITCH', 'FOCUS_LOST', 'FULLSCREEN_EXIT'] as IncidentType[]).map((t) => (
-                    <Button key={t} size="sm" variant="ghost" onClick={() => reportIncident(iv.id, t)}>
-                      {{ TAB_SWITCH: 'Pestaña', FOCUS_LOST: 'Foco', FULLSCREEN_EXIT: 'Pantalla completa', COPY_PASTE: 'Pegado' }[t]}
-                    </Button>
-                  ))}
-                </div>
               </div>
             </aside>
           </div>

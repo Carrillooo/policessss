@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { MotionConfig } from 'motion/react'
 import { AppShell } from '@/components/layout/AppShell'
@@ -34,6 +34,20 @@ const fullscreenFallback = (
 const pageFallback = <SystemLoader label="CARGANDO" className="min-h-[60vh]" />
 
 export default function App() {
+  const loaded = useApp((s) => s.loaded)
+  useEffect(() => {
+    void useApp.getState().init()
+  }, [])
+
+  if (!loaded)
+    return (
+      <MotionConfig reducedMotion="user">
+        <div className="grid min-h-screen place-items-center">
+          <SystemLoader label="SINCRONIZANDO" />
+        </div>
+      </MotionConfig>
+    )
+
   return (
     <MotionConfig reducedMotion="user">
       <TooltipProvider>

@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
-import { CalendarPlus, FileCheck, Search, SearchX, UserPlus, Users, X } from 'lucide-react'
+import { CalendarPlus, FileCheck, Search, SearchX, Trash2, UserPlus, Users, X } from 'lucide-react'
 import { Page, PageHeader } from '@/components/app/PageHeader'
 import { CandidateStatusBadge, InterviewStatusBadge, ResultBadge } from '@/components/app/StatusBadge'
 import { EmptyState } from '@/components/app/EmptyState'
@@ -80,7 +80,8 @@ export default function Candidates() {
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [toDelete, setToDelete] = useState<Candidate | null>(null)
+  const deleteCandidate = useApp((s) => s.deleteCandidate)
   const [flash, setFlash] = useState<{ id: string; n: number } | null>(null)
   const firstRender = useRef(true)
   const rowRefs = useRef(new Map<string, HTMLElement>())
@@ -142,7 +143,7 @@ export default function Candidates() {
     return rows.filter(({ candidate: c }) => {
       if (filter !== 'all' && c.status !== filter) return false
       if (!q) return true
-      return normalize(`${c.name} ${c.citizenId} ${c.discord}`).includes(q)
+      return normalize(`${c.name} ${c.discord}`).includes(q)
     })
   }, [rows, filter, query])
 
@@ -177,8 +178,8 @@ export default function Candidates() {
         title="Candidatos"
         description="Aspirantes registrados, su estado en el proceso y el resultado de su última entrevista."
         actions={
-          <Button variant="primary" onClick={() => setDialogOpen(true)}>
-            <UserPlus /> NUEVO CANDIDATO
+          <Button variant="primary" onClick={() => navigate('/entrevistas?nueva=1')}>
+            <UserPlus /> NUEVA ENTREVISTA
           </Button>
         }
       />
@@ -223,7 +224,7 @@ export default function Candidates() {
             ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar nombre, DNI o Discord…"
+            placeholder="Buscar nombre o ID de Discord…"
             aria-label="Buscar candidatos"
             className="pl-9 pr-16"
           />
@@ -254,9 +255,9 @@ export default function Candidates() {
 
       {/* Lista */}
       <section className="panel mt-4 overflow-hidden" aria-label="Listado de candidatos">
-        <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_70px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.3fr)_auto] items-center gap-4 border-b border-line px-5 py-3 lg:grid">
-          {['Candidato', 'Discord', 'Edad', 'Solicitud', 'Estado', 'Última entrevista', 'Acciones'].map((h, i) => (
-            <span key={h} className={cn('label-caps !text-[10px]', i === 6 && 'text-right')}>
+        <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.3fr)_auto] items-center gap-4 border-b border-line px-5 py-3 lg:grid">
+          {['Candidato', 'ID Discord', 'Solicitud', 'Estado', 'Última entrevista', 'Acciones'].map((h, i) => (
+            <span key={h} className={cn('label-caps !text-[10px]', i === 5 && 'text-right')}>
               {h}
             </span>
           ))}
@@ -269,10 +270,10 @@ export default function Candidates() {
             <EmptyState
               icon={Users}
               title="SIN CANDIDATOS"
-              description="Todavía no hay aspirantes registrados. Registra el primero para programar su entrevista."
+              description="Los postulantes aparecen aquí al crearles una entrevista (nombre + ID de Discord)."
               action={
-                <Button variant="primary" size="sm" onClick={() => setDialogOpen(true)}>
-                  <UserPlus /> NUEVO CANDIDATO
+                <Button variant="primary" size="sm" onClick={() => navigate('/entrevistas?nueva=1')}>
+                  <UserPlus /> NUEVA ENTREVISTA
                 </Button>
               }
             />
@@ -312,6 +313,7 @@ export default function Candidates() {
                   onSchedule={() => schedule(row.candidate)}
                   onOpen={(id) => navigate(`/entrevistas/${id}`)}
                   onResult={(id) => navigate(`/entrevistas/${id}/resultado`)}
+                  onDelete={() => setToDelete(row.candidate)}
                 />
               ))}
             </AnimatePresence>
@@ -325,7 +327,30 @@ export default function Candidates() {
         </p>
       )}
 
-      <NewCandidateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <Dialog
+        open={!!toDelete}
+        onOpenChange={(v) => !v && setToDelete(null)}
+        title="¿Eliminar postulante?"
+        description={toDelete ? `Se borrarán ${toDelete.name} y todas sus entrevistas. No se puede deshacer.` : ''}
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setToDelete(null)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              if (toDelete) {
+                deleteCandidate(toDelete.id)
+                toast.info('POSTULANTE ELIMINADO', toDelete.name)
+              }
+              setToDelete(null)
+            }}
+          >
+            <Trash2 /> Eliminar
+          </Button>
+        </div>
+      </Dialog>
     </Page>
   )
 }
@@ -343,6 +368,7 @@ function CandidateRow({
   onSchedule,
   onOpen,
   onResult,
+  onDelete,
 }: {
   row: CandidateRowData
   index: number
@@ -352,6 +378,7 @@ function CandidateRow({
   onSchedule: () => void
   onOpen: (id: string) => void
   onResult: (id: string) => void
+  onDelete: () => void
 }) {
   const { candidate: c, latest, lastFinished, active } = row
   const delay = stagger ? Math.min(index, MAX_STAGGERED) * STAGGER.fast : 0
@@ -379,13 +406,13 @@ function CandidateRow({
         />
       )}
 
-      <div className="group grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 px-4 py-4 transition-colors duration-150 hover:bg-white/[0.02] sm:px-5 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_70px_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.3fr)_auto] lg:items-center lg:gap-4 lg:py-3">
+      <div className="group grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 px-4 py-4 transition-colors duration-150 hover:bg-white/[0.02] sm:px-5 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.3fr)_auto] lg:items-center lg:gap-4 lg:py-3">
         {/* Identidad */}
         <div className="col-span-2 flex min-w-0 items-center gap-3 lg:col-span-1">
           <Avatar name={c.name} status={c.status} />
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-fg">{c.name}</div>
-            <div className="tabular font-mono text-[11px] text-dim">{c.citizenId}</div>
+            <div className="tabular truncate font-mono text-[11px] text-dim">{c.discord}</div>
           </div>
           <div className="ml-auto lg:hidden">
             <CandidateStatusBadge status={c.status} />
@@ -393,12 +420,9 @@ function CandidateRow({
         </div>
 
         {/* Metadatos: en móvil, una rejilla compacta */}
-        <dl className="col-span-2 grid grid-cols-3 gap-3 text-xs lg:contents">
-          <Meta label="Discord" className="truncate font-mono text-[12px] text-muted">
-            @{c.discord}
-          </Meta>
-          <Meta label="Edad" className="tabular text-muted">
-            {c.age}
+        <dl className="col-span-2 grid grid-cols-2 gap-3 text-xs lg:contents">
+          <Meta label="ID Discord" className="truncate font-mono text-[12px] text-muted">
+            {c.discord}
           </Meta>
           <Meta label="Solicitud" className="text-muted">
             <span className="tabular">{dateFmt.format(c.appliedAt)}</span>
@@ -429,9 +453,12 @@ function CandidateRow({
             </Button>
           ) : (
             <Button size="sm" variant="outline" onClick={onSchedule} className="flex-1 sm:flex-none">
-              <CalendarPlus /> Programar entrevista
+              <CalendarPlus /> Nueva entrevista
             </Button>
           )}
+          <Button size="icon" variant="ghost" onClick={onDelete} aria-label={`Eliminar a ${c.name}`} className="text-dim hover:!text-red-300">
+            <Trash2 />
+          </Button>
         </div>
       </div>
     </motion.li>
@@ -501,140 +528,5 @@ function LoadingRows() {
         </li>
       ))}
     </ul>
-  )
-}
-
-/* ---------------------------------------------------------------- */
-/* Alta de candidato                                                 */
-/* ---------------------------------------------------------------- */
-
-interface FormState {
-  name: string
-  citizenId: string
-  age: string
-  discord: string
-}
-type FormErrors = Partial<Record<keyof FormState, string>>
-
-const EMPTY_FORM: FormState = { name: '', citizenId: '', age: '', discord: '' }
-
-function validate(f: FormState, existingIds: string[]): FormErrors {
-  const e: FormErrors = {}
-  const name = f.name.trim()
-  if (!name) e.name = 'El nombre es obligatorio.'
-  else if (name.split(/\s+/).length < 2) e.name = 'Indica nombre y apellido.'
-  else if (name.length > 48) e.name = 'Máximo 48 caracteres.'
-
-  const id = f.citizenId.trim().toUpperCase()
-  if (!id) e.citizenId = 'El DNI es obligatorio.'
-  else if (!/^LS-\d{5}$/.test(id)) e.citizenId = 'Formato esperado: LS-12345.'
-  else if (existingIds.includes(id)) e.citizenId = 'Ya existe un candidato con este DNI.'
-
-  const age = Number(f.age)
-  if (!f.age.trim()) e.age = 'La edad es obligatoria.'
-  else if (!Number.isInteger(age)) e.age = 'Introduce un número entero.'
-  else if (age < 18) e.age = 'Edad mínima: 18 años.'
-  else if (age > 65) e.age = 'Edad máxima: 65 años.'
-
-  const discord = f.discord.trim().replace(/^@/, '')
-  if (!discord) e.discord = 'El usuario de Discord es obligatorio.'
-  else if (!/^[\w.#]{2,32}$/.test(discord)) e.discord = 'Entre 2 y 32 caracteres, sin espacios.'
-  return e
-}
-
-function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const createCandidate = useApp((s) => s.createCandidate)
-  const candidates = useApp((s) => s.candidates)
-  const [form, setForm] = useState<FormState>(EMPTY_FORM)
-  const [touched, setTouched] = useState<Partial<Record<keyof FormState, boolean>>>({})
-  const [submitted, setSubmitted] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  const existingIds = useMemo(() => candidates.map((c) => c.citizenId.toUpperCase()), [candidates])
-  const errors = validate(form, existingIds)
-  const valid = Object.keys(errors).length === 0
-  const show = (k: keyof FormState) => (submitted || touched[k] ? errors[k] : undefined)
-
-  useEffect(() => {
-    if (!open) return
-    setForm(EMPTY_FORM)
-    setTouched({})
-    setSubmitted(false)
-    setSaving(false)
-  }, [open])
-
-  const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
-  const blur = (k: keyof FormState) => () => setTouched((t) => ({ ...t, [k]: true }))
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitted(true)
-    if (!valid || saving) return
-    setSaving(true)
-    const c = createCandidate({
-      name: form.name.trim().replace(/\s+/g, ' '),
-      citizenId: form.citizenId.trim().toUpperCase(),
-      age: Number(form.age),
-      discord: form.discord.trim().replace(/^@/, ''),
-    })
-    toast.success('CANDIDATO REGISTRADO', `${c.name} · ${c.citizenId}`)
-    onOpenChange(false)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Nuevo candidato" description="Registra al aspirante para poder programar su entrevista.">
-      <form onSubmit={submit} noValidate className="space-y-4">
-        <Field id="nc-name" label="Nombre y apellido" error={show('name')}>
-          <Input id="nc-name" autoFocus autoComplete="off" placeholder="p. ej. Lucía Moreno" value={form.name} onChange={set('name')} onBlur={blur('name')} aria-invalid={!!show('name')} aria-describedby="nc-name-err" />
-        </Field>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_120px]">
-          <Field id="nc-cid" label="DNI ciudadano" error={show('citizenId')}>
-            <Input id="nc-cid" autoComplete="off" placeholder="LS-12345" className="font-mono uppercase" value={form.citizenId} onChange={set('citizenId')} onBlur={blur('citizenId')} aria-invalid={!!show('citizenId')} aria-describedby="nc-cid-err" />
-          </Field>
-          <Field id="nc-age" label="Edad" error={show('age')}>
-            <Input id="nc-age" inputMode="numeric" placeholder="18–65" className="tabular" value={form.age} onChange={set('age')} onBlur={blur('age')} aria-invalid={!!show('age')} aria-describedby="nc-age-err" />
-          </Field>
-        </div>
-        <Field id="nc-discord" label="Discord" error={show('discord')}>
-          <Input id="nc-discord" autoComplete="off" placeholder="usuario" className="font-mono" value={form.discord} onChange={set('discord')} onBlur={blur('discord')} aria-invalid={!!show('discord')} aria-describedby="nc-discord-err" />
-        </Field>
-
-        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button type="submit" variant="primary" loading={saving} disabled={submitted && !valid}>
-            <UserPlus /> REGISTRAR CANDIDATO
-          </Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
-
-function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <div className={cn('[&_input]:transition-[border-color,box-shadow]', error && '[&_input]:border-red-400/60 [&_input]:focus:shadow-[0_0_0_3px_rgb(239_68_68/0.15)]')}>
-      <label htmlFor={id} className="label-caps mb-1.5 block">
-        {label}
-      </label>
-      {children}
-      <AnimatePresence initial={false}>
-        {error && (
-          <motion.p
-            key="err"
-            id={`${id}-err`}
-            role="alert"
-            initial={{ opacity: 0, height: 0, y: -4 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            exit={{ opacity: 0, height: 0, transition: EXIT_TRANSITION }}
-            transition={DEFAULT_TRANSITION}
-            className="overflow-hidden"
-          >
-            <span className="block pt-1.5 text-xs text-red-300">{error}</span>
-          </motion.p>
-        )}
-      </AnimatePresence>
-    </div>
   )
 }

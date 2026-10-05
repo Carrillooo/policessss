@@ -59,12 +59,11 @@ function CodeEntry() {
             if (code.trim()) navigate(`/portal/${code.trim().toUpperCase()}`)
           }}
         >
-          <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="LSPD-XXXX" className="h-12 text-center font-mono text-lg tracking-[0.3em] uppercase" autoFocus aria-label="Código de entrevista" />
+          <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="LSPD-XXXXXX" className="h-12 text-center font-mono text-lg tracking-[0.3em] uppercase" autoFocus aria-label="Código de entrevista" />
           <Button variant="primary" size="lg" className="w-full" type="submit">
             CONECTAR <ArrowRight />
           </Button>
         </form>
-        <p className="mt-4 font-mono text-[10px] tracking-widest text-dim">DEMO: LSPD-9T1R</p>
       </motion.div>
     </Shell>
   )
@@ -118,16 +117,19 @@ function Session({ code }: { code: string }) {
   const [dir, setDir] = useState(1)
 
   // Conexión y verificación simuladas (secuencia visual)
+  const ivId = iv?.id
+  const ivFinished = iv?.status === 'finished'
   useEffect(() => {
-    const found = join(code)
-    if (!found) return
+    if (!ivId) return
+    if (!ivFinished) join(ivId)
     const a = setTimeout(() => setIntro('verified'), 1500)
     const b = setTimeout(() => setIntro('done'), 2700)
     return () => {
       clearTimeout(a)
       clearTimeout(b)
     }
-  }, [code, join])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ivId, join])
 
   // Al iniciar la entrevista: "INTERVIEW STARTED" breve
   const status = iv?.status
@@ -228,7 +230,7 @@ function Session({ code }: { code: string }) {
                 </div>
                 <div className="mt-2 font-display text-xl font-bold tracking-wide">{candidate?.name}</div>
                 <div className="font-mono text-[11px] text-dim">
-                  {candidate?.citizenId} · Sesión {iv?.code}
+                  Discord {candidate?.discord} · Sesión {iv?.code}
                 </div>
                 <ul className="mt-4 space-y-1.5 text-xs text-muted">
                   <li className="flex gap-2">

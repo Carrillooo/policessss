@@ -22,14 +22,12 @@ import {
   Shield,
   User,
   UserPlus,
-  Users,
 } from 'lucide-react'
 import { modalVariants, overlayVariants, FAST_TRANSITION } from '@/lib/animations'
 import { searchArticles } from '@/lib/search'
 import { cn, normalize } from '@/lib/utils'
 import { QUESTIONS, QUESTION_CATEGORY_LABEL } from '@/data/questions'
 import { ARTICLES } from '@/data/normativa'
-import { STAFF } from '@/data/staff'
 import { useApp } from '@/store/app-store'
 import { useUi } from '@/store/ui-store'
 import { Kbd } from '@/components/ui/kbd'
@@ -111,7 +109,7 @@ export function CommandPalette() {
       const actions: Item[] = [
         { id: 'a-new', group: 'Acciones', icon: Plus, title: 'Nueva entrevista', hint: 'Crear entrevista y generar enlace seguro', run: () => go('/entrevistas?nueva=1') },
         { id: 'a-live', group: 'Acciones', icon: Radio, title: 'Ver entrevistas activas', run: () => go('/entrevistas?estado=live') },
-        { id: 'a-cand', group: 'Acciones', icon: UserPlus, title: 'Buscar candidato', run: () => go('/candidatos') },
+        { id: 'a-cand', group: 'Acciones', icon: UserPlus, title: 'Ver candidatos', run: () => go('/candidatos') },
         { id: 'a-norm', group: 'Acciones', icon: BookOpen, title: 'Consultar normativa', run: () => go('/normativa') },
         { id: 'a-games', group: 'Acciones', icon: Gamepad2, title: 'Abrir pruebas psicotécnicas', run: () => go('/pruebas') },
         { id: 'a-portal', group: 'Acciones', icon: Shield, title: 'Abrir portal del postulante', hint: 'Vista del candidato en una pestaña nueva', run: () => (setOpen(false), window.open('/portal', '_blank')) },
@@ -170,10 +168,10 @@ export function CommandPalette() {
         )
       // Candidatos
       candidates
-        .filter((c) => matches(query, c.name, c.citizenId, c.discord))
+        .filter((c) => matches(query, c.name, c.discord))
         .slice(0, 4)
         .forEach((c) =>
-          add({ id: 'c-' + c.id, group: 'Candidatos', icon: User, title: c.name, hint: `${c.citizenId} · ${c.discord}`, run: () => go(`/candidatos?focus=${c.id}`) }),
+          add({ id: 'c-' + c.id, group: 'Candidatos', icon: User, title: c.name, hint: `Discord ${c.discord}`, run: () => go(`/candidatos?focus=${c.id}`) }),
         )
       // Entrevistas
       interviews
@@ -194,10 +192,6 @@ export function CommandPalette() {
             run: () => go(i.status === 'finished' ? `/entrevistas/${i.id}/resultado` : `/entrevistas/${i.id}`),
           })
         })
-      // Usuarios
-      STAFF.filter((u) => matches(query, u.name, u.rank, u.role))
-        .slice(0, 3)
-        .forEach((u) => add({ id: 'u-' + u.id, group: 'Usuarios', icon: Users, title: u.name, hint: `${u.rank} · ${u.badge} · ${u.role}`, run: () => setOpen(false) }))
     }
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -17,6 +17,9 @@ import { useApp } from '@/store/app-store'
 import { useNow } from '@/hooks/useNow'
 import { formatClockSeconds } from '@/lib/utils'
 
+/** Si se define en Vercel, el panel exige este código para entrar */
+const ACCESS_CODE = import.meta.env.VITE_ACCESS_CODE as string | undefined
+
 export default function Login() {
   const login = useApp((s) => s.login)
   const navigate = useNavigate()
@@ -25,12 +28,31 @@ export default function Login() {
   const now = useNow(1000)
   const session = useApp((s) => s.session)
 
-  const access = () => {
+  const [name, setName] = useState(() => {
+    try {
+      return localStorage.getItem('lspd-last-name') ?? ''
+    } catch {
+      return ''
+    }
+  })
+  const [accessCode, setAccessCode] = useState('')
+  const [error, setError] = useState('')
+
+  const access = (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (phase !== 'idle') return
+    if (name.trim().length < 2) return setError('Introduce tu nombre de entrevistador.')
+    if (ACCESS_CODE && accessCode !== ACCESS_CODE) return setError('Código de acceso incorrecto.')
+    setError('')
+    try {
+      localStorage.setItem('lspd-last-name', name.trim())
+    } catch {
+      /* noop */
+    }
     setPhase('verifying')
     setTimeout(() => setPhase('granted'), 900)
     setTimeout(() => {
-      login()
+      login(name)
       navigate((location.state as { from?: string } | null)?.from ?? '/', { replace: true })
     }, 1500)
   }
@@ -92,10 +114,41 @@ export default function Login() {
           <DecryptedText text="SECURE PERSONNEL ACCESS" delay={1150} speed={32} />
         </div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...DEFAULT_TRANSITION, delay: 1.5 }} className="mt-10">
-          <Magnet strength={0.18}>
+        <motion.form
+          onSubmit={access}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...DEFAULT_TRANSITION, delay: 1.5 }}
+          className="mt-9 flex w-full max-w-sm flex-col items-center gap-3"
+        >
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Tu nombre (entrevistador)"
+            aria-label="Nombre del entrevistador"
+            autoComplete="name"
+            className="h-12 w-full rounded-xl border border-line-strong bg-bg-elevated/70 px-4 text-center text-sm text-fg backdrop-blur placeholder:text-dim focus:border-blue-400/60 focus:shadow-[0_0_0_3px_rgb(59_130_246/0.15)] focus:outline-none"
+          />
+          {ACCESS_CODE && (
+            <input
+              type="password"
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value)}
+              placeholder="Código de acceso"
+              aria-label="Código de acceso"
+              className="h-12 w-full rounded-xl border border-line-strong bg-bg-elevated/70 px-4 text-center font-mono text-sm tracking-widest text-fg backdrop-blur placeholder:font-sans placeholder:tracking-normal placeholder:text-dim focus:border-blue-400/60 focus:shadow-[0_0_0_3px_rgb(59_130_246/0.15)] focus:outline-none"
+            />
+          )}
+          <AnimatePresence>
+            {error && (
+              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-red-300" role="alert">
+                {error}
+              </motion.p>
+            )}
+          </AnimatePresence>
+          <Magnet strength={0.18} className="mt-2">
             <button
-              onClick={access}
+              type="submit"
               disabled={phase !== 'idle'}
               className="gradient-border group relative h-14 overflow-hidden rounded-xl bg-gradient-to-b from-blue-600/90 to-blue-800/90 px-8 font-mono text-sm font-semibold tracking-[0.24em] text-white shadow-[0_0_0_1px_rgb(96_165_250/0.4),0_20px_60px_-15px_rgb(59_130_246/0.8)] transition-shadow duration-200 hover:shadow-[0_0_0_1px_rgb(147_197_253/0.6),0_24px_70px_-10px_rgb(59_130_246/1)] disabled:cursor-wait"
             >
@@ -133,7 +186,7 @@ export default function Login() {
               </AnimatePresence>
             </button>
           </Magnet>
-        </motion.div>
+        </motion.form>
 
         <motion.a
           href="/portal"

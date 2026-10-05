@@ -6,21 +6,23 @@ import { Kbd } from '@/components/ui/kbd'
 import { LiveIndicator } from '@/components/feedback/LiveIndicator'
 import { useApp } from '@/store/app-store'
 import { useUi } from '@/store/ui-store'
-import { realtime, type RealtimeTransport } from '@/lib/realtime'
+import { db, type DbStatus } from '@/lib/db'
 import { modalVariants, SPRING_TRANSITION } from '@/lib/animations'
 import { cn, formatClock, isMac } from '@/lib/utils'
 import { useNow } from '@/hooks/useNow'
 
 function SystemStatus() {
-  const [t, setT] = useState<RealtimeTransport>(realtime.transport)
-  useEffect(() => realtime.onTransport(setT), [])
+  const [t, setT] = useState<DbStatus>(db.status)
+  useEffect(() => db.onStatus(setT), [])
   const now = useNow(15_000)
+  const label = { online: 'SYSTEM ONLINE', connecting: 'CONNECTING', error: 'SIN CONEXIÓN', local: 'MODO LOCAL' }[t]
+  const tone = t === 'online' ? 'live' : t === 'error' ? 'danger' : 'warn'
   return (
     <div className="hidden items-center gap-3 rounded-lg border border-line bg-white/[0.02] px-3 py-1.5 md:flex">
-      <LiveIndicator label={t === 'connecting' ? 'CONNECTING' : 'SYSTEM ONLINE'} tone={t === 'connecting' ? 'warn' : 'live'} />
+      <LiveIndicator label={label} tone={tone} />
       <span className="h-3 w-px bg-line-strong" />
-      <span className="font-mono text-[10.5px] tracking-widest text-muted" title={t === 'supabase' ? 'Supabase Realtime' : 'Sincronización local entre pestañas'}>
-        {t === 'supabase' ? 'RT·SUPABASE' : 'RT·LOCAL'}
+      <span className="font-mono text-[10.5px] tracking-widest text-muted" title={t === 'local' ? 'Los datos sólo existen en este navegador' : 'Supabase Realtime'}>
+        {t === 'local' ? 'RT·LOCAL' : 'RT·SUPABASE'}
       </span>
       <span className="h-3 w-px bg-line-strong" />
       <span className="tabular font-mono text-[10.5px] tracking-widest text-muted">{formatClock(now)}</span>
